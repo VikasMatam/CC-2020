@@ -1,0 +1,62 @@
+version: '3'
+
+services:
+  zoo:
+    image: zookeeper
+    restart: on-failure
+    hostname: zoo
+    ports:
+      - 2181:2181
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=0.0.0.0:2888:3888;2181
+  rmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.8.3-alpine
+
+  producer:
+    container_name: orchestrator
+    build: ./producer
+    image: orchestrator:latest
+    command: sh -c "sleep 5 && python3 orchestrator.py"
+    links:
+    - rmq
+    - zoo
+    depends_on:
+    - rmq
+    - zoo
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    restart: on-failure
+    ports:
+      - "80:80"
+
+  master:
+    container_name: master
+    build: ./consumer
+    image: master:latest
+    command: sh -c "sleep 30 && python3 worker.py"
+    links:
+    - rmq
+    - zoo
+    depends_on:
+    - rmq
+    - zoo
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    restart: on-failure
+
+  slave:
+    container_name: slave
+    build: ./consumer
+    image: slave:latest
+    command: sh -c "sleep 30 && python3 worker.py"
+    links:
+    - rmq
+    - zoo
+    depends_on:
+    - rmq
+    - zoo
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    restart: on-failure
